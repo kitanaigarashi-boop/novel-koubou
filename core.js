@@ -40,7 +40,7 @@
   NK.newPage = function (prev) {
     return {
       id: NK.uid(),
-      mode: prev ? prev.mode : 'chara',
+      mode: prev ? prev.mode : 'illust',
       bg: 'keep',
       illust: 'keep',
       speaker: '',

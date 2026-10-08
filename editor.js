@@ -967,7 +967,7 @@
         'div',
         { class: 'field' },
         h('span', { class: 'lbl' }, '表示モード'),
-        h('div', { class: 'seg', role: 'group', 'aria-label': '表示モード' }, segBtn('立ち絵', 'chara'), segBtn('イラスト', 'illust')),
+        h('div', { class: 'seg', role: 'group', 'aria-label': '表示モード' }, segBtn('イラスト', 'illust'), segBtn('立ち絵', 'chara')),
         p.mode === 'chara' ? h('span', { class: 'muted small' }, '背景の上に、キャラを左・中央・右に最大3人まで表示できます。') : h('span', { class: 'muted small' }, '1枚絵を画面いっぱいに表示します。文章なしのページも作れます。')
       )
     );

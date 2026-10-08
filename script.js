@@ -171,6 +171,7 @@
     var ills = assetsOf('illust');
     var bgms = assetsOf('bgm');
 
+    var prevMode = 'illust';
     blocks.forEach(function (blk) {
       var d = blk.d;
       var textBody = blk.text;
@@ -185,7 +186,13 @@
       function warn(msg) {
         warnings.push(no + 'ページ目: ' + msg);
       }
-      var page = { mode: 'chara', bg: 'keep', illust: 'keep', chars: 'keep', bgm: 'keep', speaker: '', text: textBody };
+      /* Illustration is the default. A page switches to character mode when it
+         names characters or a background; later pages inherit the mode. */
+      var mode = prevMode;
+      if (d.illust !== undefined && !NONE.test(d.illust)) mode = 'illust';
+      else if (d.chars !== undefined || d.bg !== undefined || (d.illust !== undefined && NONE.test(d.illust))) mode = 'chara';
+      prevMode = mode;
+      var page = { mode: mode, bg: 'keep', illust: 'keep', chars: 'keep', bgm: 'keep', speaker: '', text: textBody };
 
       if (d.bg !== undefined) {
         if (NONE.test(d.bg)) page.bg = null;
@@ -253,7 +260,9 @@
       '    BGM: 名前   (止めるときは「BGM: 停止」)',
       '    話者: 名前',
       '・立ち絵の位置は 左・中央・右 のどれか。最大3人。立ち絵を消すときは「立ち絵: なし」。',
-      '・「イラスト:」を書いたページは、1枚絵を全画面で見せます(戦闘など)。立ち絵は出ません。',
+      '・基本は「イラスト: 名前」で1枚絵を全画面で見せます。書かないページは前のイラストのままです。',
+      '・立ち絵を出したいページだけ、「背景:」や「立ち絵:」を書きます(そのページから立ち絵の表示になります)。',
+      '・立ち絵の表示からイラストに戻すときは、「イラスト: 名前」を書きます。',
       '・その次の行から本文を書きます。1ページは2〜4行ほど。セリフは「」で書きます。',
       '・最初のページの先頭に「シナリオ: タイトル」を書きます。',
       '・全体を、1つのコードブロック(```で囲んだ中)に入れて出力してください。太字や見出しは使いません。',
@@ -266,7 +275,7 @@
       '',
       '【例】',
       'シナリオ: 朝の教室',
-      '背景: ' + (assetsOf('bg')[0] ? assetsOf('bg')[0].name : '教室'),
+      'イラスト: ' + (assetsOf('illust')[0] ? assetsOf('illust')[0].name : '教室の朝'),
       '',
       '今日はいつもより少し早く学校に着いた。',
       '教室にはまだ誰もいない。',
