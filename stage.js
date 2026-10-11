@@ -9,7 +9,11 @@
     host.textContent = '';
     var r = NK.resolve(sc, idx);
     var p = r.page;
-    var st = h('div', { class: 'stage', 'data-mode': p.mode });
+    var hasName = p.speaker.trim().length > 0;
+    var hasText = p.text.trim().length > 0;
+    /* Illustration with text: the picture sits above and the text box below, so nothing is hidden. */
+    var fit = p.mode === 'illust' && (hasName || hasText);
+    var st = h('div', { class: 'stage', 'data-mode': p.mode, 'data-fit': fit ? '1' : '0' });
 
     var bgUrl = NK.assetUrl(r.bg);
     var bgLayer = h('div', { class: 'layer' + (bgUrl ? '' : ' ph') });
@@ -18,8 +22,15 @@
 
     if (p.mode === 'illust') {
       var ilUrl = NK.assetUrl(r.illust);
-      var ilLayer = h('div', { class: 'layer' + (ilUrl ? '' : ' ph ph-ill') });
-      if (ilUrl) ilLayer.style.backgroundImage = 'url("' + ilUrl + '")';
+      var ilLayer = h('div', { class: 'layer' + (ilUrl ? '' : ' ph ph-ill') + (fit ? ' fit' : '') });
+      if (ilUrl) {
+        ilLayer.style.backgroundImage = 'url("' + ilUrl + '")';
+        if (fit) {
+          var blur = h('div', { class: 'layer blur' });
+          blur.style.backgroundImage = 'url("' + ilUrl + '")';
+          st.appendChild(blur);
+        }
+      }
       st.appendChild(ilLayer);
       if (!ilUrl && opts.hints) st.appendChild(h('div', { class: 'hint' }, 'イラスト未設定'));
     } else {
@@ -33,8 +44,6 @@
       });
     }
 
-    var hasName = p.speaker.trim().length > 0;
-    var hasText = p.text.trim().length > 0;
     if (hasName || hasText) {
       var msg = h('div', { class: 'msg' });
       if (hasName) msg.appendChild(h('div', { class: 'name' }, p.speaker.trim()));

@@ -932,6 +932,17 @@
       )
     );
 
+    /* page navigation: shown above the preview and again at the bottom */
+    function navRow() {
+      return h(
+        'div',
+        { class: 'btn-row' },
+        h('button', { class: 'btn', type: 'button', disabled: idx === 0, onclick: function () { NK.go({ pageIdx: idx - 1 }); } }, '‹ 前のページ'),
+        h('button', { class: 'btn', type: 'button', disabled: idx === sc.pages.length - 1, onclick: function () { NK.go({ pageIdx: idx + 1 }); } }, '次のページ ›')
+      );
+    }
+    v.appendChild(navRow());
+
     var preview = h('div', { class: 'preview' });
     function refresh() {
       NK.renderStage(preview, sc, idx, { hints: true });
@@ -968,7 +979,7 @@
         { class: 'field' },
         h('span', { class: 'lbl' }, '表示モード'),
         h('div', { class: 'seg', role: 'group', 'aria-label': '表示モード' }, segBtn('イラスト', 'illust'), segBtn('立ち絵', 'chara')),
-        p.mode === 'chara' ? h('span', { class: 'muted small' }, '背景の上に、キャラを左・中央・右に最大3人まで表示できます。') : h('span', { class: 'muted small' }, '1枚絵を画面いっぱいに表示します。文章なしのページも作れます。')
+        p.mode === 'chara' ? h('span', { class: 'muted small' }, '背景の上に、キャラを左・中央・右に最大3人まで表示できます。') : h('span', { class: 'muted small' }, '1枚絵を表示します。文章があるときは絵を上、文章を下に出し、絵は隠れません。文章なしなら全画面です。')
       )
     );
 
@@ -1059,14 +1070,7 @@
       )
     );
 
-    v.appendChild(
-      h(
-        'div',
-        { class: 'btn-row' },
-        h('button', { class: 'btn', type: 'button', disabled: idx === 0, onclick: function () { NK.go({ pageIdx: idx - 1 }); } }, '‹ 前のページ'),
-        h('button', { class: 'btn', type: 'button', disabled: idx === sc.pages.length - 1, onclick: function () { NK.go({ pageIdx: idx + 1 }); } }, '次のページ ›')
-      )
-    );
+    v.appendChild(navRow());
     v.appendChild(
       h(
         'div',

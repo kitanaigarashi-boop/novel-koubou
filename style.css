@@ -852,6 +852,35 @@ textarea[readonly] {
 .stage .ph-ill {
   background: linear-gradient(180deg, #3a2a34, #1c1722);
 }
+.stage[data-fit='1'] {
+  display: flex;
+  flex-direction: column;
+}
+.stage .layer.blur {
+  background-size: cover;
+  filter: blur(14px) brightness(0.5);
+  transform: scale(1.12);
+}
+.stage[data-fit='1'] .layer.fit {
+  position: relative;
+  inset: auto;
+  flex: 1 1 0;
+  min-height: 0;
+  background-size: contain;
+}
+.stage[data-fit='1'] .msg {
+  position: relative;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  flex: none;
+  min-height: 0;
+  margin: 0 3.5cqw 3.5cqw;
+}
+#player .stage[data-fit='1'] .msg {
+  bottom: auto;
+  margin-bottom: calc(3.5cqw + env(safe-area-inset-bottom, 0px));
+}
 .stage .hint {
   position: absolute;
   left: 0;
