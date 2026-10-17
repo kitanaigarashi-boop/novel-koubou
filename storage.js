@@ -87,7 +87,7 @@
       });
     },
     assetPut: async function (rec) {
-      var r = { id: rec.id, kind: rec.kind, name: rec.name, type: rec.type, w: rec.w, h: rec.h, blob: rec.blob };
+      var r = { id: rec.id, kind: rec.kind, name: rec.name, type: rec.type, w: rec.w, h: rec.h, blob: rec.blob, at: rec.at || 0 };
       if (memory) {
         memAssets.set(r.id, r);
         return;
@@ -180,7 +180,7 @@
     var sprite = kind === 'sprite';
     var img = await NK.processImage(file, sprite ? 1400 : 1600, sprite);
     var name = (file.name || '').replace(/\.[^.]+$/, '').slice(0, 40) || '無題';
-    var rec = { id: NK.uid(), kind: kind, name: name, type: img.blob.type, blob: img.blob, w: img.w, h: img.h };
+    var rec = { id: NK.uid(), kind: kind, name: name, type: img.blob.type, blob: img.blob, w: img.w, h: img.h, at: Date.now() };
     await NK.store.assetPut(rec);
     rec.url = URL.createObjectURL(rec.blob);
     NK.data.assets.set(rec.id, rec);
@@ -194,7 +194,7 @@
     if (!okType) throw new Error('not-audio');
     if (file.size > MAX_AUDIO) throw new Error('too-big');
     var name = (file.name || '').replace(/\.[^.]+$/, '').slice(0, 40) || '無題';
-    var rec = { id: NK.uid(), kind: 'bgm', name: name, type: file.type || 'audio/mpeg', blob: file, w: 0, h: 0 };
+    var rec = { id: NK.uid(), kind: 'bgm', name: name, type: file.type || 'audio/mpeg', blob: file, w: 0, h: 0, at: Date.now() };
     await NK.store.assetPut(rec);
     rec.url = URL.createObjectURL(rec.blob);
     NK.data.assets.set(rec.id, rec);
@@ -206,6 +206,7 @@
     var a = NK.data.assets.get(id);
     if (a && a.url) URL.revokeObjectURL(a.url);
     NK.data.assets.delete(id);
+    if (NK.data.project.folderOf) delete NK.data.project.folderOf[id];
     NK.data.project.scenarios.forEach(function (sc) {
       sc.pages.forEach(function (p) {
         if (p.bg === id) p.bg = null;
@@ -262,7 +263,7 @@
     var list = Array.from(NK.data.assets.values());
     for (var i = 0; i < list.length; i++) {
       var a = list[i];
-      assets.push({ id: a.id, kind: a.kind, name: a.name, type: a.type, w: a.w, h: a.h, data: await blobToDataUrl(a.blob) });
+      assets.push({ id: a.id, kind: a.kind, name: a.name, type: a.type, w: a.w, h: a.h, at: a.at || 0, data: await blobToDataUrl(a.blob) });
     }
     var now = new Date();
     var payload = {
@@ -324,6 +325,7 @@
         type: a.type || 'image/jpeg',
         w: a.w || 0,
         h: a.h || 0,
+        at: Number(a.at) || 0,
         blob: dataUrlToBlob(a.data)
       };
       await NK.store.assetPut(rec);

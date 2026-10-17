@@ -112,6 +112,207 @@
     return z;
   }
 
+  /* ---------- organising images: filter bar, edit sheet, folders, clean-up ---------- */
+  function filterBar(flt, onChange) {
+    var q = h('input', { type: 'search', class: 'flt-q', value: flt.q, placeholder: '名前で探す', 'aria-label': '名前で探す' });
+    q.addEventListener('input', function () {
+      flt.q = q.value;
+      onChange();
+    });
+    var sel = h('select', { class: 'flt-sel', 'aria-label': '絞り込み' });
+    NK.filterOptions().forEach(function (o) {
+      sel.appendChild(h('option', { value: o[0] }, o[1]));
+    });
+    if (!Array.prototype.some.call(sel.options, function (o) { return o.value === flt.f; })) flt.f = 'all';
+    sel.value = flt.f;
+    sel.addEventListener('change', function () {
+      flt.f = sel.value;
+      onChange();
+    });
+    return h('div', { class: 'flt' }, q, sel);
+  }
+
+  /* an upload made while a folder is selected goes into that folder */
+  function placeNew(rec, flt) {
+    if (flt && flt.f && flt.f.slice(0, 3) === 'fd:') NK.setFolder(rec.id, flt.f.slice(3));
+  }
+
+  function openSheet(title, build) {
+    var back = h('div', { class: 'sheet-back', role: 'dialog', 'aria-modal': 'true', 'aria-label': title });
+    var done = null;
+    function close() {
+      back.remove();
+      document.removeEventListener('keydown', onKey);
+      if (done) done();
+    }
+    function onKey(e) {
+      if (e.key === 'Escape') close();
+    }
+    document.addEventListener('keydown', onKey);
+    back.addEventListener('click', function (e) {
+      if (e.target === back) close();
+    });
+    var sheet = h('div', { class: 'sheet' }, h('h2', { class: 'sheet-title' }, title));
+    build(sheet, close, function (fn) {
+      done = fn;
+    });
+    back.appendChild(sheet);
+    document.body.appendChild(back);
+  }
+
+  function openAssetEdit(a, after) {
+    openSheet('画像の編集', function (sheet, close, onDone) {
+      var name = h('input', { type: 'text', id: 'f-aname', value: a.name, maxlength: '40' });
+      var folder = h('select', { id: 'f-afolder' }, h('option', { value: '' }, 'フォルダなし'));
+      NK.folders().forEach(function (f) {
+        folder.appendChild(h('option', { value: f.id }, f.name));
+      });
+      folder.value = NK.folderOf(a.id);
+      folder.addEventListener('change', function () {
+        NK.setFolder(a.id, folder.value);
+      });
+      var used = NK.usedBy(a.id);
+      var useText = NK.countUsage(a.id) ? '使用中: ' + (used.length ? used.map(function (x) { return x.title; }).join('、') : 'キャラの表情') : '未使用';
+      onDone(function () {
+        if (name.value.trim() !== a.name) NK.renameAsset(a.id, name.value);
+        after();
+      });
+      sheet.appendChild(h('span', { class: 'tile-img big' + (a.kind === 'sprite' ? ' contain' : ''), style: 'background-image:url("' + a.url + '")', role: 'img', 'aria-label': a.name }));
+      sheet.appendChild(h('label', { class: 'field', for: 'f-aname' }, h('span', { class: 'lbl' }, '名前'), name));
+      if (NK.folders().length) sheet.appendChild(h('label', { class: 'field', for: 'f-afolder' }, h('span', { class: 'lbl' }, 'フォルダ'), folder));
+      sheet.appendChild(h('p', { class: 'muted small' }, useText));
+      sheet.appendChild(
+        h(
+          'div',
+          { class: 'btn-row' },
+          confirmButton('削除', NK.countUsage(a.id) ? '使用中のページから外れます。削除' : '本当に削除', guard(async function () {
+            onDone(after);
+            await NK.removeAsset(a.id);
+            NK.toast('画像を削除しました');
+            close();
+          })),
+          h('button', { class: 'btn primary', type: 'button', onclick: close }, '閉じる')
+        )
+      );
+    });
+  }
+
+  function openFolders(after) {
+    openSheet('フォルダ', function (sheet, close, onDone) {
+      onDone(after);
+      var list = h('div', { class: 'list' });
+      function draw() {
+        list.textContent = '';
+        var fl = NK.folders();
+        if (!fl.length) list.appendChild(h('p', { class: 'muted' }, 'フォルダはまだありません。'));
+        fl.forEach(function (f) {
+          var inp = h('input', { type: 'text', value: f.name, maxlength: '30', 'aria-label': 'フォルダ名' });
+          inp.addEventListener('change', function () {
+            f.name = inp.value.trim().slice(0, 30) || 'フォルダ';
+            NK.save();
+          });
+          list.appendChild(
+            h(
+              'div',
+              { class: 'track' },
+              inp,
+              confirmButton('削除', '中の画像は残ります。削除', function () {
+                var p = NK.data.project;
+                p.folders.splice(p.folders.indexOf(f), 1);
+                Object.keys(p.folderOf).forEach(function (k) {
+                  if (p.folderOf[k] === f.id) delete p.folderOf[k];
+                });
+                NK.save();
+                draw();
+              })
+            )
+          );
+        });
+      }
+      draw();
+      var add = h('input', { type: 'text', maxlength: '30', placeholder: '新しいフォルダ名(例: 第1話)', 'aria-label': '新しいフォルダ名' });
+      function create() {
+        var n = add.value.trim();
+        if (!n) return;
+        NK.folders().push({ id: NK.uid(), name: n.slice(0, 30) });
+        NK.save();
+        add.value = '';
+        draw();
+      }
+      sheet.appendChild(h('p', { class: 'muted small' }, '画像をまとめるフォルダです。画像の「編集」から入れられます。フォルダを選んで画像を追加すると、そのフォルダに入ります。'));
+      sheet.appendChild(list);
+      sheet.appendChild(h('div', { class: 'btn-row' }, add, h('button', { class: 'btn', type: 'button', onclick: create }, '追加')));
+      sheet.appendChild(h('div', { class: 'btn-row' }, h('button', { class: 'btn primary', type: 'button', onclick: close }, '閉じる')));
+    });
+  }
+
+  function openCleanup(after) {
+    openSheet('未使用の画像を整理', function (sheet, close, onDone) {
+      onDone(after);
+      var picked = {};
+      var body = h('div');
+      function unused() {
+        var out = [];
+        ['bg', 'illust', 'sprite'].forEach(function (k) {
+          NK.listAssets(k).forEach(function (a) {
+            if (NK.countUsage(a.id) === 0) out.push(a);
+          });
+        });
+        return out;
+      }
+      function draw() {
+        body.textContent = '';
+        var items = unused();
+        if (!items.length) {
+          body.appendChild(h('p', { class: 'muted' }, '未使用の画像はありません。'));
+          body.appendChild(h('div', { class: 'btn-row' }, h('button', { class: 'btn primary', type: 'button', onclick: close }, '閉じる')));
+          return;
+        }
+        var n = items.filter(function (a) { return picked[a.id]; }).length;
+        body.appendChild(h('p', { class: 'muted small' }, 'どのページ・キャラにも使われていない画像です(使用中の画像は出ません)。消したいものをタップして選んでください。'));
+        var grid = h('div', { class: 'grid' });
+        items.forEach(function (a) {
+          grid.appendChild(
+            h(
+              'button',
+              {
+                class: 'tile' + (picked[a.id] ? ' sel' : ''),
+                type: 'button',
+                'aria-pressed': String(!!picked[a.id]),
+                onclick: function () {
+                  picked[a.id] = !picked[a.id];
+                  draw();
+                }
+              },
+              h('span', { class: 'tile-img' + (a.kind === 'sprite' ? ' contain' : ''), style: 'background-image:url("' + a.url + '")' }, picked[a.id] ? h('span', { class: 'check' }, '✓') : null),
+              h('span', { class: 'tile-name' }, a.name)
+            )
+          );
+        });
+        body.appendChild(grid);
+        body.appendChild(
+          h(
+            'div',
+            { class: 'btn-row' },
+            h('button', { class: 'btn', type: 'button', onclick: function () { items.forEach(function (a) { picked[a.id] = n !== items.length; }); draw(); } }, n === items.length ? '選択を外す' : '全部選ぶ'),
+            confirmButton(n + '枚を削除', '本当に' + n + '枚削除', guard(async function () {
+              var ids = items.filter(function (a) { return picked[a.id]; }).map(function (a) { return a.id; });
+              for (var i = 0; i < ids.length; i++) await NK.removeAsset(ids[i]);
+              NK.toast(ids.length + '枚を削除しました');
+              picked = {};
+              draw();
+            }))
+          )
+        );
+        body.appendChild(h('div', { class: 'btn-row' }, h('button', { class: 'btn primary', type: 'button', onclick: close }, '閉じる')));
+        var del = body.querySelectorAll('.btn-row .btn')[1];
+        if (del && !n) del.disabled = true;
+      }
+      draw();
+      sheet.appendChild(body);
+    });
+  }
+
   /* ---------- asset picker (bottom sheet) ---------- */
   function openPicker(opts) {
     var back = h('div', { class: 'sheet-back', role: 'dialog', 'aria-modal': 'true', 'aria-label': opts.title });
@@ -143,21 +344,24 @@
       );
     }
 
+    var flt = { q: '', f: 'all' };
     var grid = h('div', { class: 'grid' });
-    if (opts.allowKeep) grid.appendChild(tile('引き継ぎ', 'keep', null, '前と同じ'));
-    grid.appendChild(tile('なし', null, null, 'なし'));
-    Array.from(NK.data.assets.values())
-      .filter(function (a) {
-        return a.kind === opts.kind;
-      })
-      .forEach(function (a) {
+    function drawGrid() {
+      grid.textContent = '';
+      if (opts.allowKeep) grid.appendChild(tile('引き継ぎ', 'keep', null, '前と同じ'));
+      grid.appendChild(tile('なし', null, null, 'なし'));
+      NK.filterAssets(NK.listAssets(opts.kind), flt).forEach(function (a) {
         grid.appendChild(tile(a.name, a.id, a.url));
       });
+    }
+    drawGrid();
+    var bar = filterBar(flt, drawGrid);
 
     var status = h('p', { class: 'muted small', role: 'status' });
     var upload = guard(async function (files) {
       status.textContent = '画像を縮小して保存しています…';
       var rec = await NK.addAsset(opts.kind, files[0]);
+      placeNew(rec, flt);
       opts.onPick(rec.id);
       close();
     });
@@ -166,6 +370,7 @@
       'div',
       { class: 'sheet' },
       h('h2', { class: 'sheet-title' }, opts.title),
+      bar,
       grid,
       h('div', { class: 'btn-row sheet-act' }, add, h('button', { class: 'btn', type: 'button', onclick: close }, '閉じる')),
       pasteZone(upload),
@@ -1124,7 +1329,28 @@
   views.assets = function () {
     var v = h('div', { class: 'view' });
     v.appendChild(h('h2', { class: 'view-title' }, '素材'));
-    v.appendChild(h('p', { class: 'muted' }, '登録した画像は、ページ編集の「背景」「イラスト」から選べます。画像は長辺1600pxまで自動で縮小して保存します。'));
+    v.appendChild(h('p', { class: 'muted' }, '登録した画像は、ページ編集の「背景」「イラスト」から選べます。画像は長辺1600pxまで自動で縮小して保存します。新しい順に並びます。'));
+
+    var flt = NK.ui.assetFlt;
+    var redraws = [];
+    function redrawAll() {
+      redraws.forEach(function (fn) { fn(); });
+    }
+    var unusedCount = 0;
+    ['bg', 'illust', 'sprite'].forEach(function (k) {
+      NK.listAssets(k).forEach(function (x) {
+        if (NK.countUsage(x.id) === 0) unusedCount++;
+      });
+    });
+    v.appendChild(filterBar(flt, redrawAll));
+    v.appendChild(
+      h(
+        'div',
+        { class: 'btn-row' },
+        h('button', { class: 'btn', type: 'button', onclick: function () { openFolders(NK.render); } }, 'フォルダ'),
+        h('button', { class: 'btn', type: 'button', onclick: function () { openCleanup(NK.render); } }, '未使用を整理(' + unusedCount + ')')
+      )
+    );
 
     [
       ['bg', '背景'],
@@ -1133,51 +1359,54 @@
     ].forEach(function (pair) {
       var kind = pair[0];
       var title = pair[1];
-      var items = Array.from(NK.data.assets.values()).filter(function (a) {
-        return a.kind === kind;
-      });
       var status = h('span', { class: 'muted small', role: 'status' });
       var upload = guard(async function (files) {
         for (var i = 0; i < files.length; i++) {
           status.textContent = '保存中… ' + (i + 1) + ' / ' + files.length;
-          await NK.addAsset(kind, files[i]);
+          var rec = await NK.addAsset(kind, files[i]);
+          placeNew(rec, flt);
         }
         NK.toast(files.length + '枚を追加しました');
         NK.render();
       });
       var add = fileLabel('ファイルから追加', true, upload);
-      v.appendChild(h('div', { class: 'view-head sec' }, h('h3', { class: 'sec-title' }, title + '(' + items.length + ')'), add));
+      var count = h('h3', { class: 'sec-title' });
+      v.appendChild(h('div', { class: 'view-head sec' }, count, add));
       v.appendChild(pasteZone(upload));
       v.appendChild(status);
-      if (!items.length) {
-        v.appendChild(h('p', { class: 'muted' }, title + 'はまだありません。'));
-        return;
+      var holder = h('div');
+      v.appendChild(holder);
+      function draw() {
+        holder.textContent = '';
+        var all = NK.listAssets(kind);
+        var items = NK.filterAssets(all, flt);
+        count.textContent = title + '(' + (items.length === all.length ? all.length : items.length + ' / ' + all.length) + ')';
+        if (!items.length) {
+          holder.appendChild(h('p', { class: 'muted' }, all.length ? '条件に合う画像がありません。' : title + 'はまだありません。'));
+          return;
+        }
+        var grid = h('div', { class: 'grid' });
+        items.forEach(function (a) {
+          var fd = NK.folderOf(a.id);
+          grid.appendChild(
+            h(
+              'div',
+              { class: 'asset' },
+              h('button', { class: 'tile-img' + (kind === 'sprite' ? ' contain' : ''), type: 'button', style: 'background-image:url("' + a.url + '")', 'aria-label': a.name + 'を編集', onclick: function () { openAssetEdit(a, NK.render); } }),
+              h('span', { class: 'tile-name' }, a.name),
+              h('span', { class: 'muted small clip' }, (fd ? '📁' + NK.folderName(fd) + ' / ' : '') + NK.usageLabel(a.id)),
+              h('button', { class: 'btn', type: 'button', onclick: function () { openAssetEdit(a, NK.render); } }, '編集')
+            )
+          );
+        });
+        holder.appendChild(grid);
       }
-      var grid = h('div', { class: 'grid' });
-      items.forEach(function (a) {
-        var n = NK.countUsage(a.id);
-        grid.appendChild(
-          h(
-            'div',
-            { class: 'asset' },
-            h('span', { class: 'tile-img' + (kind === 'sprite' ? ' contain' : ''), style: 'background-image:url("' + a.url + '")', role: 'img', 'aria-label': a.name }),
-            h('span', { class: 'tile-name' }, a.name),
-            h('span', { class: 'muted small' }, n ? n + ' ページで使用' : '未使用'),
-            confirmButton('削除', '本当に削除', guard(async function () {
-              await NK.removeAsset(a.id);
-              NK.toast('画像を削除しました');
-              NK.render();
-            }))
-          )
-        );
-      });
-      v.appendChild(grid);
+      draw();
+      redraws.push(draw);
     });
 
     /* BGM library */
-    var tracks = Array.from(NK.data.assets.values()).filter(function (a) {
-      return a.kind === 'bgm';
-    });
+    var tracks = NK.listAssets('bgm');
     var bStatus = h('span', { class: 'muted small', role: 'status' });
     var bUpload = guard(async function (files) {
       var added = 0;

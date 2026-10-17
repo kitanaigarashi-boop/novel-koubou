@@ -1044,3 +1044,71 @@ textarea[readonly] {
     padding-inline: 24px;
   }
 }
+
+/* image organising */
+.flt {
+  display: flex;
+  gap: 8px;
+}
+.flt-q {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.flt-sel {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 50%;
+}
+.flt-q,
+.flt-sel,
+.sheet select,
+.track input[type='text'] {
+  min-height: 44px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+}
+.track input[type='text'] {
+  flex: 1 1 0;
+  min-width: 0;
+}
+button.tile-img {
+  padding: 0;
+  cursor: pointer;
+  width: 100%;
+}
+.tile-img.big {
+  width: min(60%, 200px);
+  margin-inline: auto;
+}
+.tile-img.big.contain,
+.tile-img.contain {
+  background-size: contain;
+}
+.tile-img .check {
+  align-self: flex-start;
+  margin: 4px 0 0 4px;
+  margin-right: auto;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 15px;
+  line-height: 24px;
+  text-align: center;
+}
+.clip {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sheet > div:not([class]) {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
